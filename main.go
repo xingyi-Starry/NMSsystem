@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// 状态机
+// client state
 const (
 	SigningUp       = iota // 注册中
 	TokenExpired           // token 过期
@@ -22,35 +22,49 @@ const (
 	server_running
 )
 
+var clientState = SigningUp
+var serverState = server_running
+
 func main() {
+	// sign up
 	acount, err := api.SignUp(`byr`)
 	if err != nil {
-		fmt.Println(err)
-		return
+		for err != nil {
+			time.Sleep(10 * time.Second)
+			fmt.Println(err)
+			acount, err = api.SignUp(`byr`)
+		}
 	}
+	clientState = TokenExpired
+	var tokenData api.TokenData
+	var hbTimer <-chan time.Time
+	exp := make(chan bool, 1)
+	exp <- true
+
 	// fmt.Println(acount)
 
-	token, err := api.Login(acount)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	// fmt.Println(token)
-	fmt.Println(token.ValidTime)
-	fmt.Println(time.Now())
+	for {
+		switch serverState {
+		case server_running:
+			select {
+			case <-exp: // token 过期
+				tokenData, err = api.Login(acount)
+				if err != nil {
+					fmt.Println("Login error:", err)
+				}
 
-	// time.Sleep(2 * time.Second)
-	sub, err := api.GetSubmission(token)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(sub)
+				clientState = TokenNotExpired
+				hbTimer = time.After(10 * time.Second)
+			case <-hbTimer: // token 更新
+				tokenData, err = api.HeartBeat(tokenData)
+				if err != nil {
+					fmt.Println("HeartBeat error:", err)
+				}
 
-	ok, err := api.SubmitCode(token, sub)
-	if err != nil {
-		fmt.Println(err)
-		return
+				hbTimer = time.After(10 * time.Second)
+			}
+		case server_crashed:
+
+		}
 	}
-	fmt.Println(string(ok))
 }

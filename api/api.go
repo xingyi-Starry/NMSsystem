@@ -149,7 +149,42 @@ func Login(a Account) (TokenData, error) {
 		err = fmt.Errorf("err in Login: " + t.Message)
 		return TokenData{}, err
 	}
+	fmt.Println("Token:", t.Token)
+	fmt.Println("expTime:", t.ValidTime)
+	fmt.Println("nowTime:", time.Now())
 	return t, nil
+}
+
+func HeartBeat(t TokenData) (TokenData, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "http://localhost:1323/api/heartbeat", nil)
+	if err != nil {
+		err = fmt.Errorf("err in HeartBeat: %w", err)
+		return TokenData{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+t.Token)
+	resp, err := client.Do(req)
+	if err != nil {
+		err = fmt.Errorf("err in HeartBeat: %w", err)
+		return TokenData{}, err
+	}
+	defer resp.Body.Close()
+	bodyText, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("err in HeartBeat: %w", err)
+		return TokenData{}, err
+	}
+	// fmt.Printf("heartbeat: %s\n", bodyText)
+
+	var t_new TokenData
+	if !t_new.resolveJWT(bodyText) {
+		err = fmt.Errorf("err in HeartBeat: " + t_new.Message)
+		return TokenData{}, err
+	}
+	fmt.Println("Token:", t_new.Token)
+	fmt.Println("expTime:", t_new.ValidTime)
+	fmt.Println("nowTime:", time.Now())
+	return t_new, nil
 }
 
 func GetSubmission(t TokenData) (Submission, error) {
