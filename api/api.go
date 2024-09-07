@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -22,7 +21,7 @@ type Account struct {
 
 type TokenData struct {
 	Token     string `json:"token"`
-	validTime time.Time
+	ValidTime time.Time
 }
 
 type Submission struct {
@@ -70,7 +69,7 @@ func (t *TokenData) resolveJWT(j []byte) {
 		fmt.Println("err in resolveJson:", err)
 		return
 	}
-	t.validTime = time.Unix(vt.Exp, 0)
+	t.ValidTime = time.Unix(vt.Exp, 0)
 }
 
 func (s *Submission) resolveJWT(j []byte) {
@@ -82,48 +81,104 @@ func (s *Submission) resolveJWT(j []byte) {
 	fmt.Println("Code:", s.Code)
 }
 
-func SignUp(usrName string) Account {
+func SignUp(usrName string) (Account, error) {
 	client := &http.Client{}
 	var data = strings.NewReader(`username=` + usrName)
 	req, err := http.NewRequest("POST", "http://localhost:1323/signup", data)
 	if err != nil {
-		log.Fatal(err)
+		err = fmt.Errorf("err in SignUp: %w", err)
+		return Account{}, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		err = fmt.Errorf("err in SignUp: %w", err)
+		return Account{}, err
 	}
 	defer resp.Body.Close()
 	bodyText, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		err = fmt.Errorf("err in SignUp: %w", err)
+		return Account{}, err
 	}
-	// fmt.Printf("signin: %s\n", bodyText)
+	fmt.Printf("signup: %s\n", bodyText)
 	var a Account
 	a.resolveJWT(bodyText)
-	return a
+	return a, nil
 }
 
-func Login(a Account) TokenData {
+func Login(a Account) (TokenData, error) {
 	client := &http.Client{}
 	var data = strings.NewReader(`username=` + a.Username + `&password=` + a.Password)
 	req, err := http.NewRequest("POST", "http://localhost:1323/login", data)
 	if err != nil {
-		log.Fatal(err)
+		err = fmt.Errorf("err in Login: %w", err)
+		return TokenData{}, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		err = fmt.Errorf("err in Login: %w", err)
+		return TokenData{}, err
 	}
 	defer resp.Body.Close()
 	bodyText, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		err = fmt.Errorf("err in Login: %w", err)
+		return TokenData{}, err
 	}
 	// fmt.Printf("login: %s\n", bodyText)
 	var t TokenData
 	t.resolveJWT(bodyText)
-	return t
+	return t, nil
+}
+
+func GetSubmission(t TokenData) (Submission, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "http://localhost:1323/api/info", nil)
+	if err != nil {
+		err = fmt.Errorf("err in GetSubmission: %w", err)
+		return Submission{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+t.Token)
+	resp, err := client.Do(req)
+	if err != nil {
+		err = fmt.Errorf("err in GetSubmission: %w", err)
+		return Submission{}, err
+	}
+	defer resp.Body.Close()
+	bodyText, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("err in GetSubmission: %w", err)
+		return Submission{}, err
+	}
+	// fmt.Printf("submission: %s\n", bodyText)
+	var s Submission
+	s.resolveJWT(bodyText)
+	return s, nil
+}
+
+func SubmitCode(t TokenData, s Submission) ([]byte, error) {
+	client := &http.Client{}
+	var data = strings.NewReader(`code=` + s.Code)
+	req, err := http.NewRequest("POST", "http://localhost:1323/api/validate", data)
+	if err != nil {
+		err = fmt.Errorf("err in SubmitCode: %w", err)
+		return []byte{}, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", "Bearer "+t.Token)
+	resp, err := client.Do(req)
+	if err != nil {
+		err = fmt.Errorf("err in SubmitCode: %w", err)
+		return []byte{}, err
+	}
+	defer resp.Body.Close()
+	bodyText, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("err in SubmitCode: %w", err)
+		return []byte{}, err
+	}
+	fmt.Printf("submit: %s\n", bodyText)
+	return bodyText, nil
 }
