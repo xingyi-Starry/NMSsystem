@@ -30,3 +30,33 @@ func (e *NmsError) SubmissionExpired() bool {
 func (e *NmsError) ServerCrashed() bool {
 	return e.ErrType == ServerCrashErr
 }
+
+func PendingError(t interface{}, err error) error {
+	switch t := t.(type) {
+	case Account:
+		if t.Message == "Bad Gateway" || t.Message == "Internal Server Error" { // server crashed
+			return NewNmsError("server crashed", ServerCrashErr)
+		} else if t.Message != "" { // token expired
+			return NewNmsError("token expired", TokenExpErr)
+		}
+	case TokenData:
+		if t.Message == "Bad Gateway" || t.Message == "Internal Server Error" { // server crashed
+			return NewNmsError("server crashed", ServerCrashErr)
+		} else if t.Message != "" { // token expired
+			return NewNmsError("token expired", TokenExpErr)
+		}
+	case Submission:
+		if t.Message == "Bad Gateway" || t.Message == "Internal Server Error" { // server crashed
+			return NewNmsError("server crashed", ServerCrashErr)
+		} else if t.Message != "" { // submission expired
+			return NewNmsError("submission expired", SubExpErr)
+		}
+	case SubResp:
+		if t.Message == "Bad Gateway" || t.Message == "Internal Server Error" { // server crashed
+			return NewNmsError("server crashed", ServerCrashErr)
+		} else if t.Message != "" { // token expired
+			return NewNmsError("token expired", TokenExpErr)
+		}
+	}
+	return err
+}

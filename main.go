@@ -26,7 +26,7 @@ const (
 )
 
 const crashedTime = 10 * time.Second
-const tokenExpTime = 15 * time.Second
+const tokenExpTime = 5 * time.Second
 const subExpTime = 30 * time.Second
 
 var clientState = SigningUp
@@ -38,8 +38,8 @@ func main() {
 	acount, err := api.SignUp(`byr`)
 	if err != nil {
 		for err != nil {
+			fmt.Println("Sign up error:", err)
 			time.Sleep(10 * time.Second)
-			fmt.Println(err)
 			acount, err = api.SignUp(`byr`)
 		}
 	}
@@ -65,14 +65,15 @@ func main() {
 					if err != nil {
 						fmt.Println("Login error:", err)
 						if err, ok := err.(*api.NmsError); ok {
-							if err.ServerCrashed() { // 服务器崩溃
+							if err.ServerCrashed() { // 服务器崩溃 计划再次登录
 								serverState = server_crashed
 							}
 						}
+						exp <- true
+					} else { // 服务器正常 token 获取成功 计划下次更新
+						clientState = TokenNotExpired
+						hbTimer = time.After(tokenExpTime)
 					}
-
-					clientState = TokenNotExpired
-					hbTimer = time.After(tokenExpTime)
 
 				case <-hbTimer: // token 更新
 					tokenData, err = api.HeartBeat(tokenData)
@@ -82,7 +83,7 @@ func main() {
 						if err, ok := err.(*api.NmsError); ok {
 							if err.ServerCrashed() { // 服务器崩溃
 								serverState = server_crashed
-							} else if err.TokenExpired() { // token 过期
+							} else if err.TokenExpired() { // token 过期 计划登录
 								clientState = TokenExpired
 								exp <- true
 							}
@@ -108,20 +109,21 @@ func main() {
 					submission, err = api.GetSubmission(tokenData)
 
 					if err != nil {
-						fmt.Println("GetSubmission error:", err)
+						fmt.Println("GetSub error:", err)
 						if err, ok := err.(*api.NmsError); ok {
 							if err.ServerCrashed() { // 服务器崩溃
 								serverState = server_crashed
-							} else if err.TokenExpired() { // token 过期
+							} else if err.TokenExpired() { // token 过期 计划登录
 								clientState = TokenExpired
 								exp <- true
 							}
 						}
+					} else { // 服务器正常 内容获取成功 计划提交
+						submissionState = sub_got
 					}
 
-					submissionState = sub_got
-
 				case sub_got:
+					// time.Sleep(100 * time.Second)
 					_, err := api.SubmitCode(tokenData, submission)
 
 					if err != nil {
@@ -132,14 +134,14 @@ func main() {
 							} else if err.TokenExpired() { // token 过期
 								clientState = TokenExpired
 								exp <- true
-							} else if err.SubmissionExpired() { // 提交过期
+							} else if err.SubmissionExpired() { // 提交过期 计划重新获取
 								submissionState = sub_getting
-								continue
 							}
 						}
+					} else { // 服务器正常 提交成功 计划下次获取
+						submissionState = sub_getting
+						time.Sleep(subExpTime)
 					}
-					submissionState = sub_getting
-					time.Sleep(subExpTime)
 				}
 			}
 		}
