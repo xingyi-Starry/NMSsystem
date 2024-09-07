@@ -17,38 +17,47 @@ type jsonData interface {
 type Account struct {
 	Password string `json:"password"`
 	Username string `json:"username"`
+	Message  string `json:"message"`
 }
 
 type TokenData struct {
 	Token     string `json:"token"`
 	ValidTime time.Time
+	Message   string `json:"message"`
 }
 
 type Submission struct {
-	Code string `json:"code"`
+	Code    string `json:"code"`
+	Massage string `json:"message"`
 }
 
-func (a *Account) resolveJWT(j []byte) {
+func (a *Account) resolveJWT(j []byte) bool {
 	err := json.Unmarshal(j, &a)
 	if err != nil {
 		fmt.Println("err in resolveJson:", err)
-		return
+		return false
+	}
+	if a.Message != "" {
+		fmt.Println("Message:", a.Message)
+		return false
 	}
 	fmt.Println("Password:", a.Password)
 	fmt.Println("Username:", a.Username)
+	return true
 }
 
-func (t *TokenData) resolveJWT(j []byte) {
+func (t *TokenData) resolveJWT(j []byte) bool {
 	err := json.Unmarshal(j, &t)
 	if err != nil {
 		fmt.Println("err in resolveJson:", err)
-		return
+		return false
 	}
+
 	//divide
 	parts := strings.Split(t.Token, ".")
 	if len(parts) != 3 {
 		fmt.Println("Invalid JWT token")
-		return
+		return false
 	}
 
 	// head
@@ -56,7 +65,7 @@ func (t *TokenData) resolveJWT(j []byte) {
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
 		fmt.Println("err in resolveJson:", err)
-		return
+		return false
 	}
 
 	type Vt struct {
@@ -67,18 +76,20 @@ func (t *TokenData) resolveJWT(j []byte) {
 	err = json.Unmarshal(payload, &vt)
 	if err != nil {
 		fmt.Println("err in resolveJson:", err)
-		return
+		return false
 	}
 	t.ValidTime = time.Unix(vt.Exp, 0)
+	return true
 }
 
-func (s *Submission) resolveJWT(j []byte) {
+func (s *Submission) resolveJWT(j []byte) bool {
 	err := json.Unmarshal(j, &s)
 	if err != nil {
 		fmt.Println("err in resolveJson:", err)
-		return
+		return false
 	}
 	fmt.Println("Code:", s.Code)
+	return true
 }
 
 func SignUp(usrName string) (Account, error) {
@@ -102,8 +113,12 @@ func SignUp(usrName string) (Account, error) {
 		return Account{}, err
 	}
 	fmt.Printf("signup: %s\n", bodyText)
+
 	var a Account
-	a.resolveJWT(bodyText)
+	if !a.resolveJWT(bodyText) {
+		err = fmt.Errorf("err in SignUp: " + a.Message)
+		return Account{}, err
+	}
 	return a, nil
 }
 
@@ -128,8 +143,12 @@ func Login(a Account) (TokenData, error) {
 		return TokenData{}, err
 	}
 	// fmt.Printf("login: %s\n", bodyText)
+
 	var t TokenData
-	t.resolveJWT(bodyText)
+	if !t.resolveJWT(bodyText) {
+		err = fmt.Errorf("err in Login: " + t.Message)
+		return TokenData{}, err
+	}
 	return t, nil
 }
 
@@ -153,8 +172,12 @@ func GetSubmission(t TokenData) (Submission, error) {
 		return Submission{}, err
 	}
 	// fmt.Printf("submission: %s\n", bodyText)
+
 	var s Submission
-	s.resolveJWT(bodyText)
+	if !s.resolveJWT(bodyText) {
+		err = fmt.Errorf("err in GetSubmission: " + s.Massage)
+		return Submission{}, err
+	}
 	return s, nil
 }
 
