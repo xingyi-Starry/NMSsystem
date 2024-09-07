@@ -25,6 +25,10 @@ const (
 	sub_got
 )
 
+const crashedTime = 10 * time.Second
+const tokenExpTime = 15 * time.Second
+const subExpTime = 30 * time.Second
+
 var clientState = SigningUp
 var serverState = server_running
 var submissionState = sub_getting
@@ -57,23 +61,39 @@ func main() {
 				select {
 				case <-exp: // token 过期
 					tokenData, err = api.Login(acount)
+
 					if err != nil {
 						fmt.Println("Login error:", err)
+						if err, ok := err.(*api.NmsError); ok {
+							if err.ServerCrashed() { // 服务器崩溃
+								serverState = server_crashed
+							}
+						}
 					}
 
 					clientState = TokenNotExpired
-					hbTimer = time.After(10 * time.Second)
+					hbTimer = time.After(tokenExpTime)
 
 				case <-hbTimer: // token 更新
 					tokenData, err = api.HeartBeat(tokenData)
+
 					if err != nil {
 						fmt.Println("HeartBeat error:", err)
+						if err, ok := err.(*api.NmsError); ok {
+							if err.ServerCrashed() { // 服务器崩溃
+								serverState = server_crashed
+							} else if err.TokenExpired() { // token 过期
+								clientState = TokenExpired
+								exp <- true
+							}
+						}
 					}
 
-					hbTimer = time.After(10 * time.Second)
+					hbTimer = time.After(tokenExpTime)
 				}
 			case server_crashed:
-
+				time.Sleep(crashedTime)
+				serverState = server_running
 			}
 		}
 	}()
@@ -86,21 +106,42 @@ func main() {
 				switch submissionState {
 				case sub_getting:
 					submission, err = api.GetSubmission(tokenData)
+
 					if err != nil {
 						fmt.Println("GetSubmission error:", err)
+						if err, ok := err.(*api.NmsError); ok {
+							if err.ServerCrashed() { // 服务器崩溃
+								serverState = server_crashed
+							} else if err.TokenExpired() { // token 过期
+								clientState = TokenExpired
+								exp <- true
+							}
+						}
 					}
 
 					submissionState = sub_got
+
 				case sub_got:
 					_, err := api.SubmitCode(tokenData, submission)
+
 					if err != nil {
 						fmt.Println("SubmitCode error:", err)
+						if err, ok := err.(*api.NmsError); ok {
+							if err.ServerCrashed() { // 服务器崩溃
+								serverState = server_crashed
+							} else if err.TokenExpired() { // token 过期
+								clientState = TokenExpired
+								exp <- true
+							} else if err.SubmissionExpired() { // 提交过期
+								submissionState = sub_getting
+								continue
+							}
+						}
 					}
 					submissionState = sub_getting
-					time.Sleep(30 * time.Second)
+					time.Sleep(subExpTime)
 				}
 			}
-		case server_crashed:
 		}
 	}
 }

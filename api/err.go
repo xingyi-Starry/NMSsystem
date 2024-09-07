@@ -1,9 +1,9 @@
 package api
 
 const (
-	tokenExpErr = iota
-	subExpErr
-	serverCrashErr
+	TokenExpErr = iota
+	SubExpErr
+	ServerCrashErr
 )
 
 type NmsError struct {
@@ -20,13 +20,13 @@ func NewNmsError(err string, errType int) *NmsError {
 }
 
 func (e *NmsError) TokenExpired() bool {
-	return e.ErrType == tokenExpErr
+	return e.ErrType == TokenExpErr
 }
 
 func (e *NmsError) SubmissionExpired() bool {
-	return e.ErrType == subExpErr
+	return e.ErrType == SubExpErr
 }
 
 func (e *NmsError) ServerCrashed() bool {
-	return e.ErrType == serverCrashErr
+	return e.ErrType == ServerCrashErr
 }
