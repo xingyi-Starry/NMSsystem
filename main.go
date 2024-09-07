@@ -115,7 +115,6 @@ func main() {
 								serverState = server_crashed
 							} else if err.TokenExpired() { // token 过期 计划登录
 								clientState = TokenExpired
-								exp <- true
 							}
 						}
 					} else { // 服务器正常 内容获取成功 计划提交
@@ -133,7 +132,6 @@ func main() {
 								serverState = server_crashed
 							} else if err.TokenExpired() { // token 过期
 								clientState = TokenExpired
-								exp <- true
 							} else if err.SubmissionExpired() { // 提交过期 计划重新获取
 								submissionState = sub_getting
 							}
