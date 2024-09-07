@@ -88,7 +88,7 @@ func (s *Submission) resolveJWT(j []byte) bool {
 		fmt.Println("err in resolveJson:", err)
 		return false
 	}
-	fmt.Println("Code:", s.Code)
+	// fmt.Println("Code:", s.Code)
 	return true
 }
 
@@ -152,6 +152,7 @@ func Login(a Account) (TokenData, error) {
 	fmt.Println("Token:", t.Token)
 	fmt.Println("expTime:", t.ValidTime)
 	fmt.Println("nowTime:", time.Now())
+	fmt.Println()
 	return t, nil
 }
 
@@ -184,6 +185,7 @@ func HeartBeat(t TokenData) (TokenData, error) {
 	fmt.Println("Token:", t_new.Token)
 	fmt.Println("expTime:", t_new.ValidTime)
 	fmt.Println("nowTime:", time.Now())
+	fmt.Println()
 	return t_new, nil
 }
 
@@ -213,6 +215,7 @@ func GetSubmission(t TokenData) (Submission, error) {
 		err = fmt.Errorf("err in GetSubmission: " + s.Massage)
 		return Submission{}, err
 	}
+	fmt.Println("getSub:", s.Code)
 	return s, nil
 }
 
@@ -237,6 +240,6 @@ func SubmitCode(t TokenData, s Submission) ([]byte, error) {
 		err = fmt.Errorf("err in SubmitCode: %w", err)
 		return []byte{}, err
 	}
-	fmt.Printf("submit: %s\n", bodyText)
+	fmt.Printf("submit: %s\n", string(bodyText))
 	return bodyText, nil
 }
