@@ -4,8 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -107,21 +105,7 @@ func (s *SubResp) resolveJWT(j []byte) bool {
 }
 
 func SignUp(usrName string) (Account, error) {
-	client := &http.Client{}
-	var data = strings.NewReader(`username=` + usrName)
-	req, err := http.NewRequest("POST", "http://localhost:1323/signup", data)
-	if err != nil {
-		err = fmt.Errorf("err in SignUp: %w", err)
-		return Account{}, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := client.Do(req)
-	if err != nil {
-		err = fmt.Errorf("err in SignUp: %w", err)
-		return Account{}, err
-	}
-	defer resp.Body.Close()
-	bodyText, err := io.ReadAll(resp.Body)
+	bodyText, err := HttpRequest("POST", "signup", `username=`+usrName, "")
 	if err != nil {
 		err = fmt.Errorf("err in SignUp: %w", err)
 		return Account{}, err
@@ -137,27 +121,11 @@ func SignUp(usrName string) (Account, error) {
 }
 
 func Login(a Account) (TokenData, error) {
-	client := &http.Client{}
-	var data = strings.NewReader(`username=` + a.Username + `&password=` + a.Password)
-	req, err := http.NewRequest("POST", "http://localhost:1323/login", data)
+	bodyText, err := HttpRequest("POST", "login", `username=`+a.Username+`&password=`+a.Password, "")
 	if err != nil {
 		err = fmt.Errorf("err in Login: %w", err)
 		return TokenData{}, err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := client.Do(req)
-	if err != nil {
-		// err = fmt.Errorf("err in Login: %w", err)
-		err = NewNmsError("err in Login: server crashed", ServerCrashErr)
-		return TokenData{}, err
-	}
-	defer resp.Body.Close()
-	bodyText, err := io.ReadAll(resp.Body)
-	if err != nil {
-		err = fmt.Errorf("err in Login: %w", err)
-		return TokenData{}, err
-	}
-	// fmt.Printf("login: %s\n", bodyText)
 
 	var t TokenData
 	if !t.resolveJWT(bodyText) {
@@ -179,21 +147,7 @@ func Login(a Account) (TokenData, error) {
 }
 
 func HeartBeat(t TokenData) (TokenData, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", "http://localhost:1323/api/heartbeat", nil)
-	if err != nil {
-		err = fmt.Errorf("err in HeartBeat: %w", err)
-		return TokenData{}, err
-	}
-	req.Header.Set("Authorization", "Bearer "+t.Token)
-	resp, err := client.Do(req)
-	if err != nil {
-		// err = fmt.Errorf("err in HeartBeat: %w", err)
-		err = NewNmsError("err in HeartBeat: server crashed", ServerCrashErr)
-		return TokenData{}, err
-	}
-	defer resp.Body.Close()
-	bodyText, err := io.ReadAll(resp.Body)
+	bodyText, err := HttpRequest("GET", "api/heartbeat", "", t.Token)
 	if err != nil {
 		err = fmt.Errorf("err in HeartBeat: %w", err)
 		return TokenData{}, err
@@ -220,21 +174,7 @@ func HeartBeat(t TokenData) (TokenData, error) {
 }
 
 func GetSubmission(t TokenData) (Submission, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", "http://localhost:1323/api/info", nil)
-	if err != nil {
-		err = fmt.Errorf("err in GetSubmission: %w", err)
-		return Submission{}, err
-	}
-	req.Header.Set("Authorization", "Bearer "+t.Token)
-	resp, err := client.Do(req)
-	if err != nil {
-		// err = fmt.Errorf("err in GetSubmission: %w", err)
-		err = NewNmsError("err in GetSubmission: server crashed", ServerCrashErr)
-		return Submission{}, err
-	}
-	defer resp.Body.Close()
-	bodyText, err := io.ReadAll(resp.Body)
+	bodyText, err := HttpRequest("GET", "api/info", "", t.Token)
 	if err != nil {
 		err = fmt.Errorf("err in GetSubmission: %w", err)
 		return Submission{}, err
@@ -255,23 +195,7 @@ func GetSubmission(t TokenData) (Submission, error) {
 }
 
 func SubmitCode(t TokenData, s Submission) ([]byte, error) {
-	client := &http.Client{}
-	var data = strings.NewReader(`code=` + s.Code)
-	req, err := http.NewRequest("POST", "http://localhost:1323/api/validate", data)
-	if err != nil {
-		err = fmt.Errorf("err in SubmitCode: %w", err)
-		return []byte{}, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Authorization", "Bearer "+t.Token)
-	resp, err := client.Do(req)
-	if err != nil {
-		// err = fmt.Errorf("err in SubmitCode: %w", err)
-		err = NewNmsError("err in SubmitCode: server crashed", ServerCrashErr)
-		return []byte{}, err
-	}
-	defer resp.Body.Close()
-	bodyText, err := io.ReadAll(resp.Body)
+	bodyText, err := HttpRequest("POST", "api/validate", `code=`+s.Code, t.Token)
 	if err != nil {
 		err = fmt.Errorf("err in SubmitCode: %w", err)
 		return []byte{}, err
