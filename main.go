@@ -26,7 +26,7 @@ const (
 )
 
 const crashedTime = 10 * time.Second
-const tokenExpTime = 21 * time.Second
+const tokenExpTime = 5 * time.Second
 const subExpTime = 30 * time.Second
 
 var clientState = SigningUp
