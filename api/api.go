@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v4"
 )
 
 type Account struct {
@@ -183,4 +185,33 @@ func SubmitCode(t TokenData, s Submission) ([]byte, error) {
 	// fmt.Printf("submit: %s\n", string(bodyText))
 	fmt.Println("submit:", string(bodyText))
 	return bodyText, nil
+}
+
+func GenToken(t TokenData) (TokenData, error) {
+	parts := strings.Split(t.Token, ".")
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return t, err
+	}
+	type Vt struct {
+		Name string `json:"name"`
+		Exp  int64  `json:"exp"`
+	}
+	var vt Vt
+	err = json.Unmarshal(payload, &vt)
+	if err != nil {
+		return t, err
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": vt.Name,
+		"exp":      time.Now().Add(time.Second * 20).Unix(),
+	})
+	tokenString, err := token.SignedString([]byte("Hello_new_Byrs_1234123412341234"))
+	if err != nil {
+		return t, err
+	}
+	t.Token = tokenString
+	fmt.Println("genToken:", t.Token)
+	return t, nil
 }

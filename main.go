@@ -26,12 +26,13 @@ const (
 )
 
 const crashedTime = 10 * time.Second
-const tokenExpTime = 5 * time.Second
+const tokenExpTime = 21 * time.Second
 const subExpTime = 30 * time.Second
 
 var clientState = SigningUp
 var serverState = server_running
 var submissionState = sub_getting
+var loginTimes int = 0
 
 func main() {
 	// sign up
@@ -60,8 +61,12 @@ func main() {
 			case server_running:
 				select {
 				case <-exp: // token 过期
-					tokenData, err = api.Login(acount)
-
+					if loginTimes == 0 {
+						tokenData, err = api.Login(acount)
+						loginTimes++
+					} else {
+						tokenData, err = api.GenToken(tokenData)
+					}
 					if err != nil {
 						fmt.Println("Login error:", err)
 						if err, ok := err.(*api.NmsError); ok {
